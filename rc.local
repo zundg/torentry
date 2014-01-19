@@ -1,0 +1,25 @@
+#!/bin/sh 
+
+# flush all netfilter policies
+iptables -F
+iptables -t nat -F
+
+# by default redirect *ALL* DNS and HTTP queries to some local services
+# Users accepting whatever disclaimer get a new redirect on per IP basis
+# pointing to the Tor DNS and socks services (see webs.pl)
+iptables -t nat -A PREROUTING -i wlan0 -p udp --dport 53 -j REDIRECT --to-ports 5353
+iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 --syn -j REDIRECT --to-ports 81
+
+# double and triple ensure no forwarding is taking place, as this might leak our actual IP
+iptables -I FORWARD -j DROP
+iptables -P FORWARD DROP
+echo 0 > /proc/sys/net/ipv4/ip_forward
+
+iptables -I INPUT -p tcp --dport 80 -i wlan0 -j ACCEPT
+iptables -I INPUT -p tcp --dport 81 -i wlan0 -j ACCEPT
+
+# needs adjustment to deny access to local running services
+
+/root/dnss.pl
+/root/webs.pl
+exit 0
